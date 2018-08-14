@@ -1,100 +1,75 @@
-;; core.clj
-(ns x2048-clj-console.core)
+(ns x2048-clj-console.core) ;; NS STANDS FOR NAMESPACE IN CLOJURE
 
-(def grid (atom (repeat 16 0)))
+(def grid (atom (repeat 16 0))) ;; ATOM IS A MUTABLE VARIABLE - VARIABLES IN CLOJURE ARE IMMUTABLE BY DEFAULT
 (def score (atom 0))
 
-(defn print-grid []
-  (partition 4 @grid))
+(defn print-grid-vec [] ;; DEFAULT : LEFT GRID - GETS AN INSTANCE OF 4 ROWS OF THE GRID
+  (mapv vec (partition 4 @grid)))
+  
+(defn up-grid [nums] ;; ROTATES GRID 90 DEGREES COUNTERCLOCKWISE / REFLECTS GRID VERTICALLY
+  (apply mapv vector nums)) ;; GETS AN INSTANCE OF 4 COLUMNS OF THE GRID
 
-(defn print-grid-vec [nums index] ;;(shift-grid (print-grid-vec [] 0)0)
-  (if (< index 3)
-    (recur (conj nums (into [](nth (print-grid) index))) (inc index))
-    (conj nums (into [] (nth (print-grid) index)))))
+(defn right-grid [nums] ;; ROTATES GRID 180 DEGREES / REFLECTS GRID HORIZONTALLY
+  (mapv vec (mapv reverse nums)))
 
-;;rotate-grid would be shift-up rotating in -270 or 90 degrees
-;; use @grid for up
-(defn rotate-grid [nums index temp-grid] ;;2d vector of the columns or back to rows
-  (if (< index 3) ;;change @grid and add parameter to allow rotation
-    (recur (conj nums (into [](take-nth 4 (drop index temp-grid)))) (inc index) temp-grid)
-    (conj nums (into [] (take-nth 4 (drop index temp-grid))))))
+(defn down-grid [nums] ;; ROTATES GRID 90 DEGREES CLOCKWISE / REFLECTS GRID BOTH HORIZONTALLY AND VERTICALLY
+  (mapv reverse (apply mapv vector nums))) 
 
-;;use (print-grid-vec [] 0) for right, (rotate-grid ) for left
-(defn flip-grid [nums index temp-grid] ;;change out print-grid-vec into params
-  (if (< index 3)
-    (recur (conj nums (into [](reverse (nth temp-grid index)))) (inc index) temp-grid)
-    (conj nums (into [] (reverse (nth temp-grid index))))))
+(defn reverse-down-grid [nums] ;; DISCLAIMER : HARDCODED VERSION - REVERTS DOWN-GRID BACK TO DEFAULT LEFT STATE
+  (apply mapv vector (mapv reverse nums)))
 
-(defn add-zeros [nums]
+(defn add-zeros [nums] ;; ADDS ZEROS IF THE ROW IS TOO SHORT
  (concat nums (take (- 4 (count nums)) (cycle (range 0 1)))))
 
-(defn filter-zeros [nums]
+(defn filter-zeros [nums] ;; REMOVES ZEROS TO ALLOW SQUARES WITH VALUES TO SHIFT IN THEIR RESPECTIVE DIRECTION
   (add-zeros (filter pos? nums))) 
 
-(defn num-compare [x y nums index] ;;x is first, y is second
-  (if (= x y) ;;doubles the first number and sets second number to 0 if true
+(defn num-compare [nums index] ;; COMPARES TWO NUMBERS AND APPLIES FUNCTIONS IF TRUE
+  (if (= (nth nums index) (nth nums (+ index 1))) 
     (do
-      (reset! score (+ (* 2 x) @score))
-      (update (update nums (+ index 1) #(* % 0)) index #(* % 2))) 
+      (reset! score (+ (* 2 (nth nums index)) @score)) ;; UPDATES SCORE BY UPDATING THE ATOM USING "reset!"
+      (update (update nums (+ index 1) #(* % 0)) index #(* % 2))) ;; DOUBLES THE FIRST NUMBER, MAKES SECOND NUMBER ZERO
     nums))
 
-(defn iterate-thru [nums index] ;;recursion
+(defn iterate-thru [nums index] ;; ITERATES THRU A PARTICULAR ROW, USING THE ABOVE FUNCTION AS KEY LOGIC
   (if (> (- (count nums) 1) index)
-    (do ;;true
-      (let [foo (num-compare (nth nums index) (nth nums (+ index 1)) nums index)]
+    (do 
+      (let [foo (num-compare nums index)]
         (recur foo (inc index))))
     (filter-zeros nums)))
 
-(defn vec-algorithm [new-grid index]
+(defn vec-algorithm [new-grid index] ;; RETURNS AN UPDATED VERSION OF A ROW/COLUMN W/O MUTATING IT USING THE ABOVE METHODS
   (assoc new-grid index
-         (iterate-thru (into [] (filter pos? (nth new-grid index))) 0)))
+         (iterate-thru (vec (filter pos? (nth new-grid index)))0)))
 
-(defn shift-grid [new-grid index]
-  (declare vec-algorithm)
+(defn shift-grid [new-grid index] ;; RETURNS AN UPDATED VERSION OF THE WHOLE GRID WITHOUT MUTATING IT
   (if (< index 3)
       (recur (vec-algorithm new-grid index) (inc index))
       (vec-algorithm new-grid index)))
 
-(defn rotate-none [] ;;shift-left
-  (into [] (print-grid)))
-
-(defn rotate-half [] ;;shift-right 
-  (flip-grid [] 0 (print-grid-vec [] 0)))
-
-(defn rotate-small [] ;;-90 or 270 shift-down
-  (flip-grid [] 0 (rotate-grid [] 0 @grid)))
-
-(defn rotate-large [] ;;-270 or 90 shift-up
-  (rotate-grid [] 0 @grid))
-
-(defn add-block []
+(defn add-block [] ;; ADDS A "2" SQUARE TO THE GRID. RECURS IF THE "2" SQUARE WOULD BE ADDED TO AN OCCUPIED SQUARE
   (let [foo (rand-int 16)]
   (if (zero?(nth @grid foo))
     (reset! grid (assoc (into [] @grid) foo 2))
     (if (zero?(count (filter zero? (into [] @grid))))
-      (println "Be very careful with your next move...")
-      (recur)))))
+      (println "Be very careful with your next move...") ;; WARNS THE USER THAT THEIR NEXT MOVE CAN RESULT IN A LOSS
+      (recur))))) ;; RECURS IF FALSE
 
-(defn display-grid []
+(defn display-grid [] ;; DISPLAYS THE GRID AND TAKES IN INPUT RECURSIVELY
+  (doseq [foo (print-grid-vec)] (println foo))
   (let [input (read-line)]
-      (cond
-        (= input "w") (reset! grid (flatten (rotate-grid [] 0 (flatten (shift-grid (rotate-large) 0)))))
-        (= input "a") (reset! grid (flatten (shift-grid (rotate-none) 0)))
-        (= input "s") (reset! grid (flatten (rotate-grid [] 0 (flatten (flip-grid [] 0 (shift-grid (rotate-small) 0))))))
-        :else (reset! grid (flatten (flip-grid [] 0 (shift-grid (rotate-half) 0))))))
+      (cond ;; A STRANGE ATTEMPT TO REVERSE THE EFFECTS OF THE UPDATED INSTANCE OF A ROTATED/NON-ROTATED GRID
+        (= input "w") (reset! grid (flatten (up-grid (shift-grid (up-grid (print-grid-vec))0)))) 
+        (= input "a") (reset! grid (flatten (shift-grid (print-grid-vec)0)))
+        (= input "s") (reset! grid (flatten (reverse-down-grid (shift-grid (down-grid (print-grid-vec))0))))
+        (= input "d") (reset! grid (flatten (right-grid (shift-grid (right-grid (print-grid-vec))0))))
+        :otherwise (println "Type in WASD please..."))) ;; KEYWORD OTHERWISE IS ALWAYS EVALUATED TO TRUTHY AS IT IS NEITHER NIL OR FALSE
   (add-block)
-  (doseq [foo (print-grid)] (println foo))
   (println "Score : " @score)
   (recur))
 
-(defn -main [& args]
+(defn -main [& args] ;; THE MAIN METHOD - WHERE ALL THE ABOVE CODE COMES INTO FRUITION
   (println "Hello, 2048! :)")
-  (add-block)
-  (add-block)
+  (dotimes [i 2]
+    (add-block))
   (display-grid))
-  
-      
-
-
-
-
