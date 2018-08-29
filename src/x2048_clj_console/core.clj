@@ -6,15 +6,6 @@
 (defn print-grid-vec [] ;; DEFAULT : LEFT GRID - GETS AN INSTANCE OF 4 ROWS OF THE GRID
   (mapv vec (partition 4 @grid)))
   
-(defn up-grid [nums] ;; ROTATES GRID 90 DEGREES COUNTERCLOCKWISE / REFLECTS GRID VERTICALLY
-  (apply mapv vector nums)) ;; GETS AN INSTANCE OF 4 COLUMNS OF THE GRID
-
-(defn right-grid [nums] ;; ROTATES GRID 180 DEGREES / REFLECTS GRID HORIZONTALLY
-  (mapv vec (mapv reverse nums)))
-
-(defn down-grid [nums] ;; ROTATES GRID 90 DEGREES CLOCKWISE / REFLECTS GRID BOTH HORIZONTALLY AND VERTICALLY
-  (mapv reverse (apply mapv vector nums))) 
-
 (defn reverse-down-grid [nums] ;; DISCLAIMER : HARDCODED VERSION - REVERTS DOWN-GRID BACK TO DEFAULT LEFT STATE
   (apply mapv vector (mapv reverse nums)))
 
@@ -47,6 +38,33 @@
       (recur (vec-algorithm new-grid index) (inc index))
       (vec-algorithm new-grid index)))
 
+(defn up-grid
+  ([nums] (apply mapv vector nums))
+  ([] (as-> (print-grid-vec) x
+        (up-grid x)
+        (shift-grid x 0)
+        (up-grid x)
+        (flatten x)
+        (reset! grid x))))
+
+(defn right-grid
+  ([nums] (mapv vec (mapv reverse nums)))
+  ([] (as-> (print-grid-vec) x
+        (right-grid x)
+        (shift-grid x 0)
+        (right-grid x)
+        (flatten x)
+        (reset! grid x))))
+
+(defn down-grid
+  ([nums] (mapv reverse (apply mapv vector nums)))
+  ([] (as-> (print-grid-vec) x
+        (down-grid x)
+        (shift-grid x 0)
+        (reverse-down-grid x)
+        (flatten x)
+        (reset! grid x))))
+
 (defn add-block [] ;; ADDS A "2" SQUARE TO THE GRID. RECURS IF THE "2" SQUARE WOULD BE ADDED TO AN OCCUPIED SQUARE
   (let [foo (rand-int 16)]
   (if (zero?(nth @grid foo))
@@ -59,10 +77,10 @@
   (doseq [foo (print-grid-vec)] (println foo))
   (let [input (read-line)]
       (cond ;; A STRANGE ATTEMPT TO REVERSE THE EFFECTS OF THE UPDATED INSTANCE OF A ROTATED/NON-ROTATED GRID
-        (= input "w") (reset! grid (flatten (up-grid (shift-grid (up-grid (print-grid-vec))0)))) 
-        (= input "a") (reset! grid (flatten (shift-grid (print-grid-vec)0)))
-        (= input "s") (reset! grid (flatten (reverse-down-grid (shift-grid (down-grid (print-grid-vec))0))))
-        (= input "d") (reset! grid (flatten (right-grid (shift-grid (right-grid (print-grid-vec))0))))
+        (= input "w") (up-grid)
+        (= input "a") (as-> (print-grid-vec) x (shift-grid x 0) (flatten x) (reset! grid x))
+        (= input "s") (down-grid)
+        (= input "d") (right-grid)
         :otherwise (println "Type in WASD please..."))) ;; KEYWORD OTHERWISE IS ALWAYS EVALUATED TO TRUTHY AS IT IS NEITHER NIL OR FALSE
   (add-block)
   (println "Score : " @score)
