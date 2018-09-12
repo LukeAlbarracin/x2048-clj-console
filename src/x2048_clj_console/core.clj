@@ -1,6 +1,6 @@
-(ns x2048-clj-console.core) ;; NS STANDS FOR NAMESPACE IN CLOJURE
+(ns x2048-clj-console.core) 
 
-(def grid (atom (repeat 16 0))) ;; ATOM IS A MUTABLE VARIABLE - VARIABLES IN CLOJURE ARE IMMUTABLE BY DEFAULT
+(def grid (atom (repeat 16 0))) 
 (def score (atom 0))
 
 (defn grid-2d
@@ -8,10 +8,6 @@
   ([] (mapv vec (partition 4 @grid)))
   ([temp-grid] (mapv vec (partition 4 temp-grid))))
   
-(defn reverse-down-grid [temp-grid] 
-  "Hardcoded method that reverts down-grid back to standard position"
-  (apply mapv vector (mapv reverse temp-grid)))
-
 (defn add-zeros [row]
   "Adds zeros if the row is too short"
  (concat row (take (- 4 (count row)) (cycle [0]))))
@@ -28,7 +24,7 @@
       (update (update row (+ index 1) #(* % 0)) index #(* % 2))) 
     row))
 
-(defn update-row
+(defn update-row 
   "Returns an updated version of the row"
   ([row] (update-row row 0))
   ([row index]
@@ -48,29 +44,25 @@
   "Returns the updated version of the whole grid"
   ([new-grid] (shift-grid new-grid 0))
   ([new-grid index]
-  (if (< index 3)
-      (recur (assoc-row new-grid index) (inc index))
-      (assoc-row new-grid index))))
+    (if (< index 3)
+        (recur (assoc-row new-grid index) (inc index))
+        (assoc-row new-grid index))))
 
 (defmacro back-and-forth 
-  ([f1 f2]
-  `(->> (grid-2d) ~@f1 ~@f2 (shift-grid) ~@f2 ~@f1 (flatten))))
+  "Powerful macro that returns the grid to its natural state after rotating it"
+  ([f1 f2] `(->> (grid-2d) ~@f1 ~@f2 (shift-grid) ~@f2 ~@f1 (flatten))))
 
-(defn up-grid
+(defn up-grid [temp-grid]
   "Logic for shifting the grid up ... Rotates it"
-  ([nums] 
-    (apply mapv vector nums))
-  ([temp-grid un-used] (back-and-forth (up-grid) (identity))))
+  (apply mapv vector temp-grid))
 
-(defn right-grid
+(defn right-grid [temp-grid]
   "Logic for shifting the grid right ... Rotates it"
-  ([nums] (mapv vec (mapv reverse nums)))
-  ([temp-grid un-used] (back-and-forth (right-grid) (identity))))
+  (mapv vec (mapv reverse temp-grid)))
 
-(defn down-grid
+(defn down-grid [temp-grid]
   "Logic for shifting the grid down ... Rotates it"
-  ([nums] (mapv reverse (apply mapv vector nums)))
-  ([temp-grid un-used] (back-and-forth (up-grid) (right-grid))))
+  (back-and-forth (up-grid) (right-grid)))
 
 (defn add-block [] 
   "Adds a '2' square to the grid"
@@ -87,17 +79,17 @@
   (doseq [temp-grid (grid-2d)] (println temp-grid))
   (let [input (clojure.string/lower-case (read-line))]
       (cond 
-        (= input "w") (reset! grid (up-grid (grid-2d) nil))
-        (= input "a") (as-> (grid-2d) x (shift-grid x) (flatten x) (reset! grid x))
-        (= input "s") (reset! grid (down-grid (grid-2d) nil))
-        (= input "d") (reset! grid (right-grid (grid-2d) nil))
+        (= input "w") (reset! grid (back-and-forth (up-grid) (identity)))
+        (= input "a") (->> (grid-2d) (shift-grid) (flatten) (reset! grid))
+        (= input "s") (reset! grid (down-grid (grid-2d)))
+        (= input "d") (reset! grid (back-and-forth (right-grid) (identity)))
         :otherwise (println "Type in WASD please..."))) 
   (add-block)
   (println "--------")
   (println "Score : " @score)
   (recur))
 
-(defn -main [& args] ;; THE MAIN METHOD - WHERE ALL THE ABOVE CODE COMES INTO FRUITION
+(defn -main [& args]
   (println "This is 2048")
   (println "Enter a WASD key to move")
   (dotimes [i 2]
